@@ -1,0 +1,67 @@
+name: anki
+services:
+  sync:
+    image: "{{ anki_loaded_image.stdout | trim }}"
+    stop_signal: SIGINT
+    pull_policy: never
+    restart: unless-stopped
+    user: "65532:65532"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m
+    pids_limit: 128
+    env_file: /opt/anki/secrets/sync.env
+    volumes:
+      - /opt/anki/data/sync:/data
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    networks:
+      edge:
+        aliases: [anki-sync]
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+  mcp:
+    image: "{{ anki_mcp_loaded_image.stdout | trim }}"
+    depends_on:
+      sync:
+        condition: service_healthy
+    pull_policy: never
+    restart: unless-stopped
+    user: "65532:65532"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m
+    pids_limit: 128
+    environment:
+      ANKI_OIDC_ISSUER: https://auth.aries.timdumol.com
+      ANKI_MCP_RESOURCE: "https://{{ anki_mcp_domain }}/mcp"
+      ANKI_OWNER_SUBJECT: 6aca99a5-7ec4-4252-b94e-a0e53805e983
+      ANKI_COLLECTION: /data/collection.anki2
+      ANKI_BOOTSTRAP_DOWNLOAD: "1"
+      ANKI_WRITES_ENABLED: "1"
+      ANKI_ALLOW_READONLY_FULL_DOWNLOAD: "0"
+      ANKI_SYNC_ENDPOINT: "http://anki-sync:8080/"
+      ANKI_SYNC_USERNAME: timdumol
+      ANKI_SYNC_PASSWORD_FILE: /run/secrets/sync-password
+    volumes:
+      - /opt/anki/data/mcp:/data
+      - /opt/anki/secrets/mcp-sync-password:/run/secrets/sync-password:ro
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    networks:
+      edge:
+        aliases: [anki-mcp]
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+networks:
+  edge:
+    external: true
+    name: caddy-edge

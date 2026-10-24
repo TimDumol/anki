@@ -1,0 +1,5 @@
+all:
+  hosts:
+    jupiter:
+      ansible_host: jupiter.timdumol.com
+      ansible_user: timdumol

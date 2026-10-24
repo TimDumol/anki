@@ -1,0 +1,10 @@
+[Unit]
+Description=Check for explicitly confirmed Anki template migrations
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+Unit=anki-maintenance.service
+
+[Install]
+WantedBy=timers.target

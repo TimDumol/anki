@@ -6,6 +6,87 @@ mod release
 default:
     @just --list
 
+# Build the Rust-only client feasibility gate and official sync server
+anki-stack-build:
+    {{ ninja }} rslib:proto ftl:repo
+    cargo build --locked -p anki-headless-spike -p anki-sync-server -p anki-mcp
+
+anki-stack-test:
+    {{ ninja }} rslib:proto ftl:repo
+    cargo test --locked -p anki-headless-spike -p anki-mcp
+
+anki-stack-check:
+    cargo clippy --locked -p anki-headless-spike -p anki-mcp --tests -- -D warnings
+    out/node_modules/.bin/dprint check 'deploy/anki/*.md' 'deploy/anki/*.mjs' 'services/**/*.json' 'services/**/Cargo.toml'
+
+anki-stack-fmt:
+    cargo +nightly-2025-03-20 fmt -p anki-headless-spike -p anki-mcp
+    out/node_modules/.bin/dprint fmt 'deploy/anki/*.md' 'deploy/anki/*.mjs' 'services/**/*.json' 'services/**/Cargo.toml'
+
+anki-inspect-export export target:
+    cargo run --locked -p anki-headless-spike -- --inspect-export {{quote(export)}} --collection {{quote(target)}}
+
+anki-inspect-collection target:
+    cargo run --locked -p anki-headless-spike -- --inspect-collection --collection {{quote(target)}}
+
+anki-inspect-notetype target id:
+    cargo run --locked -p anki-headless-spike -- --inspect-notetype {{quote(id)}} --collection {{quote(target)}}
+
+anki-preview-migration target id:
+    cargo run --locked -p anki-mcp -- --preview-migration {{quote(id)}} --collection {{quote(target)}}
+
+anki-context-fixture target output:
+    cargo run --locked -p anki-mcp -- --build-context-fixture {{quote(output)}} --collection {{quote(target)}}
+
+anki-context-browser-test rendered:
+    out/extracted/node/bin/node deploy/anki/context-browser-test.mjs {{quote(rendered)}}
+
+anki-spike *args:
+    cargo run --locked -p anki-headless-spike -- {{args}}
+
+anki-update-sanitizer:
+    cargo update -p ammonia --precise 4.1.8
+
+# Update dependencies affected by the October 2026 security advisories
+anki-security-update:
+    cargo update -p ammonia --precise 4.1.8
+    cargo update -p rustls -p rustls-webpki -p webpki-roots -p zip
+    cargo update -p tokio --precise 1.51.6
+
+anki-security-audit:
+    cargo deny check advisories
+
+anki-security-update-js:
+    {{ yarn }} up -R ajv brace-expansion devalue diff esbuild http-cache-semantics ip-address js-yaml minimatch nanoid picomatch postcss-selector-parser source-map-js svgo yaml
+
+anki-security-audit-js:
+    {{ yarn }} npm audit --all --recursive --json
+
+anki-security-update-python:
+    {{ uv }} lock --upgrade-package anyio --upgrade-package certifi --upgrade-package filelock --upgrade-package gitpython --upgrade-package pip --upgrade-package pygments --upgrade-package pytest --upgrade-package setuptools --upgrade-package urllib3 --upgrade-package virtualenv --upgrade-package werkzeug
+
+anki-security-audit-python:
+    {{ uv }} export --frozen --all-groups --no-hashes --no-emit-project --format requirements-txt --output-file /tmp/anki-security-requirements.txt
+    {{ uv }} tool run pip-audit --disable-pip --no-deps -r /tmp/anki-security-requirements.txt
+
+# Build the official server with the patched workspace lockfile
+anki-sync-image:
+    docker build --platform linux/amd64 -f deploy/anki/Dockerfile.sync -t anki-sync:dd324c8 .
+
+anki-mcp-image:
+    docker build --platform linux/amd64 -f deploy/anki/Dockerfile.mcp -t anki-mcp:staging .
+
+# Deploy staging through the existing Caddy edge
+anki-deploy *args:
+    bash deploy/anki/deploy.sh {{ args }}
+
+anki-deploy-syntax:
+    bash -n deploy/anki/deploy.sh deploy/anki/backup-snapshot.sh deploy/anki/maintenance.sh
+    ansible-playbook -i deploy/anki/ansible/inventory.yml deploy/anki/ansible/site.yml --syntax-check -e anki_image_archive=/tmp/anki-image-syntax.tar
+
+anki-maintenance-test:
+    python3 deploy/anki/maintenance-test.py
+
 # Build the project
 build:
     {{ ninja }} pylib qt

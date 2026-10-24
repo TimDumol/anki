@@ -19,28 +19,28 @@ use crate::input::BuildInput;
 pub fn node_archive(platform: Platform) -> OnlineArchive {
     match platform {
         Platform::LinuxX64 => OnlineArchive {
-            url: "https://nodejs.org/dist/v22.17.0/node-v22.17.0-linux-x64.tar.xz",
-            sha256: "325c0f1261e0c61bcae369a1274028e9cfb7ab7949c05512c5b1e630f7e80e12",
+            url: "https://nodejs.org/dist/v22.23.4/node-v22.23.4-linux-x64.tar.xz",
+            sha256: "1805bcd35e6815559bd2eb97db438d3fdb0eb3a5e6a977b7c1badca76337e9ce",
         },
         Platform::LinuxArm => OnlineArchive {
-            url: "https://nodejs.org/dist/v22.17.0/node-v22.17.0-linux-arm64.tar.xz",
-            sha256: "140aee84be6774f5fb3f404be72adbe8420b523f824de82daeb5ab218dab7b18",
+            url: "https://nodejs.org/dist/v22.23.4/node-v22.23.4-linux-arm64.tar.xz",
+            sha256: "6287aa46b6c375d816e63ae66d024fbbfd70404825aabdfdf898a970871d2f4b",
         },
         Platform::MacX64 => OnlineArchive {
-            url: "https://nodejs.org/dist/v22.17.0/node-v22.17.0-darwin-x64.tar.xz",
-            sha256: "f79de1f64df4ac68493a344bb5ab7d289d0275271e87b543d1278392c9de778a",
+            url: "https://nodejs.org/dist/v22.23.4/node-v22.23.4-darwin-x64.tar.xz",
+            sha256: "f42abca7aaac61efc57d49fb42ea84fc53bbeba9a749cb03a291ce6e4e7a69c1",
         },
         Platform::MacArm => OnlineArchive {
-            url: "https://nodejs.org/dist/v22.17.0/node-v22.17.0-darwin-arm64.tar.xz",
-            sha256: "cc9cc294eaf782dd93c8c51f460da610cc35753c6a9947411731524d16e97914",
+            url: "https://nodejs.org/dist/v22.23.4/node-v22.23.4-darwin-arm64.tar.xz",
+            sha256: "037650d0839f457747396f052073fb48333d31bf5abd3c98b74da20d89ebb1ad",
         },
         Platform::WindowsX64 => OnlineArchive {
-            url: "https://nodejs.org/dist/v22.17.0/node-v22.17.0-win-x64.zip",
-            sha256: "721ab118a3aac8584348b132767eadf51379e0616f0db802cc1e66d7f0d98f85",
+            url: "https://nodejs.org/dist/v22.23.4/node-v22.23.4-win-x64.zip",
+            sha256: "cbc74b5e0982c9dbb41525fd8fb5dcd32fbee237863f7829072f4639a1ce5f20",
         },
         Platform::WindowsArm => OnlineArchive {
-            url: "https://nodejs.org/dist/v22.17.0/node-v22.17.0-win-arm64.zip",
-            sha256: "78355dc9ca117bb71d3f081e4b1b281855e2b134f3939bb0ca314f7567b0e621",
+            url: "https://nodejs.org/dist/v22.23.4/node-v22.23.4-win-arm64.zip",
+            sha256: "a8b8cd79cbbb3062435f449591d98dd63730bbbf30ce2d7cc3a6376c236cb111",
         },
     }
 }

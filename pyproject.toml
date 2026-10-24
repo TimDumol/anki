@@ -45,7 +45,8 @@ docs = [
 # Local resolution guard; keep in sync with Dependabot cooldown.
 [tool.uv]
 exclude-newer = "7 days"
-exclude-newer-package = { anki-mac-helper = false, anki-audio = false, briefcase = false }
+# Security updates are exempt from the release cooldown.
+exclude-newer-package = { anki-mac-helper = false, anki-audio = false, briefcase = false, anyio = false, certifi = false, distlib = false, filelock = false, gitpython = false, pip = false, pygments = false, pytest = false, python-discovery = false, setuptools = false, urllib3 = false, virtualenv = false, werkzeug = false }
 required-version = ">=0.9.25"
 
 [tool.uv.workspace]

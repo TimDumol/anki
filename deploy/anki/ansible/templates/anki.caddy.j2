@@ -1,0 +1,22 @@
+{{ anki_sync_domain }} {
+    header {
+        -Server
+        Strict-Transport-Security "max-age=31536000"
+    }
+    reverse_proxy anki-sync:8080 {
+        transport http {
+            read_buffer 512k
+        }
+    }
+}
+
+{{ anki_mcp_domain }} {
+    header -Server
+    @mcp path /mcp /mcp/* /.well-known/oauth-protected-resource /.well-known/oauth-protected-resource/* /healthz
+    handle @mcp {
+        reverse_proxy anki-mcp:3000 {
+            flush_interval -1
+        }
+    }
+    respond 404
+}

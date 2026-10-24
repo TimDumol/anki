@@ -1,0 +1,39 @@
+{
+    "source": "anki-premigrate.colpkg",
+    "export_sha256": "7cabda376d77d72ce531ef5ef90ca0565af17c4615fa3f23c5f536e8911b1e82",
+    "user_verified_desktop_restore": true,
+    "rust_import_counts": {
+        "notes": 665,
+        "cards": 699,
+        "revlog": 2003,
+        "decks": 6,
+        "notetypes": 18
+    },
+    "media_files": 4511,
+    "restored_table_sha256": {
+        "notes": "cee4d191053f5cdbe84957f882b6957dcfe68b67063490aef361bb382f26b8f7",
+        "cards": "1fd498dbdcbc80635f5630d01fb7f8d88df1c4da5c054c10288c5f1b5cba311c",
+        "revlog": "f63e16bcbe6e7ad57776f97e5322d7be34bf3803b2bf9f51b71e1f9458bd50c8"
+    },
+    "representative_note_ids": [
+        1369624120639,
+        1369629218728,
+        1369629269414,
+        1369629284816,
+        1369629299920
+    ],
+    "representative_card_ids": [
+        1369629218547,
+        1369629269404,
+        1369629284805,
+        1369629299910,
+        1369629320716
+    ],
+    "media_sample_sha256": [
+        "762bae47d4bc8e41cc4e1cc435ee5e08d1b41c83bbef341c9fe0e30f25820fc6",
+        "e4e58715a95df4b38cb91d595cd755a808f23f3ddb54eb7cd04626330eef5a2e",
+        "c99325a83d1f8574f3cfbb82bc23e76b081c0ba76a5fa2ddf760f9844c93fd53",
+        "19122b502afc4728ac650e87c938184b54f81b2fbc212fad8cda7cb03dd69642",
+        "641378548d285d077befd13f0d754909151e560fc96bffd30463c28717ef0575"
+    ]
+}

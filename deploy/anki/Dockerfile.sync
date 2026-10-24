@@ -1,0 +1,23 @@
+FROM rust:1.99.0-bookworm@sha256:114c7a4425406451c2866b6aafe69fe29b1b298832db1277d411ac73c82d04d6 AS builder
+RUN apt-get update && apt-get install -y --no-install-recommends protobuf-compiler && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY Cargo.toml Cargo.lock .version LICENSE ./
+COPY build/ build/
+COPY ftl/ ftl/
+COPY proto/ proto/
+COPY rslib/ rslib/
+COPY pylib/rsbridge/ pylib/rsbridge/
+COPY tools/minilints/ tools/minilints/
+COPY services/ services/
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/src/target \
+    cargo build --locked --release -p anki-sync-server && mkdir /out && cp /src/target/release/anki-sync-server /out/anki-sync-server
+
+FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /out/anki-sync-server /usr/local/bin/anki-sync-server
+USER 65532:65532
+ENV SYNC_BASE=/data SYNC_HOST=0.0.0.0 SYNC_PORT=8080
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 CMD ["anki-sync-server", "--healthcheck"]
+ENTRYPOINT ["anki-sync-server"]

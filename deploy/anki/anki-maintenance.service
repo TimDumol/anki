@@ -1,0 +1,10 @@
+[Unit]
+Description=Apply explicitly confirmed Anki template migration
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/anki/maintenance.sh
+TimeoutStartSec=15min
+UMask=0077

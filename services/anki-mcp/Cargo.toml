@@ -1,0 +1,25 @@
+[package]
+name = "anki-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+ammonia.workspace = true
+anki = { workspace = true, features = ["rustls"] }
+anyhow.workspace = true
+axum.workspace = true
+blake3.workspace = true
+clap.workspace = true
+jsonwebtoken.workspace = true
+rand.workspace = true
+reqwest = { workspace = true, features = ["rustls-tls"] }
+rmcp.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing-subscriber.workspace = true

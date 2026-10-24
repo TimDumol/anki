@@ -1,0 +1,253 @@
+---
+- name: Deploy Anki services behind the existing Caddy
+  hosts: jupiter
+  become: true
+  vars:
+    anki_root: /opt/anki
+    anki_site: /opt/caddy/sites-enabled/anki.caddy
+    anki_sync_domain: api.jupiter.timdumol.com
+    anki_mcp_domain: mcp.jupiter.timdumol.com
+  pre_tasks:
+    - name: Require an explicit hostname and locally built image
+      ansible.builtin.assert:
+        that:
+          - anki_sync_domain is defined
+          - anki_sync_domain is match('^[a-z0-9][a-z0-9.-]+$')
+          - anki_image_archive is defined
+          - ansible_facts['architecture'] == 'x86_64'
+    - name: Verify shared network
+      ansible.builtin.command: docker network inspect caddy-edge
+      changed_when: false
+      check_mode: false
+    - name: Verify shared Caddy import
+      ansible.builtin.command:
+        argv: [grep, -Fq, 'import sites-enabled/*', /opt/aprendiendo-mcp/app/Caddyfile]
+      changed_when: false
+      check_mode: false
+    - name: Locate running shared Caddy
+      ansible.builtin.command:
+        argv: [docker, compose, -f, /opt/aprendiendo-mcp/app/compose.production.yaml, ps, -q, caddy]
+      register: caddy
+      changed_when: false
+      check_mode: false
+    - name: Require running Caddy
+      ansible.builtin.assert:
+        that: caddy.stdout | trim | length > 0
+    - name: Inspect previous deployment
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /opt/anki/compose.yaml
+        - "{{ anki_site }}"
+      register: previous
+  tasks:
+    - name: Create deployment directories
+      ansible.builtin.file:
+        path: "{{ anki_root }}/{{ item.path }}"
+        state: directory
+        owner: "{{ item.owner }}"
+        group: "{{ item.owner }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - {path: '', owner: '0', mode: '0755'}
+        - {path: secrets, owner: '0', mode: '0700'}
+        - {path: rollback, owner: '0', mode: '0700'}
+        - {path: data/sync, owner: '65532', mode: '0700'}
+        - {path: data/mcp, owner: '65532', mode: '0700'}
+    - name: Inspect native sync credentials
+      ansible.builtin.stat:
+        path: /opt/anki/secrets/sync.env
+      register: credentials
+    - name: Generate initial native sync passwords
+      ansible.builtin.command: openssl rand -hex 64
+      register: password
+      changed_when: true
+      when: not credentials.stat.exists
+      no_log: true
+    - name: Save native sync credentials
+      ansible.builtin.copy:
+        content: "SYNC_USER1=tim:{{ password.stdout[:64] }}\nSYNC_USER2=timdumol:{{ password.stdout[64:] }}\n"
+        dest: /opt/anki/secrets/sync.env
+        owner: root
+        group: root
+        mode: '0600'
+      when: not credentials.stat.exists
+      no_log: true
+    - name: Upload local image
+      ansible.builtin.copy:
+        src: "{{ anki_image_archive }}"
+        dest: /opt/anki/image.tar
+        mode: '0600'
+      when: not ansible_check_mode
+    - name: Load image without a VPS build
+      ansible.builtin.command: docker load --input /opt/anki/image.tar
+      when: not ansible_check_mode
+      changed_when: true
+    - name: Remove image transfer archive
+      ansible.builtin.file:
+        path: /opt/anki/image.tar
+        state: absent
+    - name: Record immutable loaded image ID
+      ansible.builtin.command:
+        argv: [docker, image, inspect, --format, '{{ "{{.Id}}" }}', anki-sync:dd324c8]
+      register: anki_loaded_image
+      changed_when: false
+      when: not ansible_check_mode
+    - name: Inspect loaded MCP image
+      ansible.builtin.command:
+        argv: [docker, image, inspect, --format, '{{ "{{.Id}}" }}', anki-mcp:staging]
+      register: anki_mcp_loaded_image
+      changed_when: false
+      when: not ansible_check_mode
+    - name: Read sync credentials
+      ansible.builtin.slurp:
+        src: /opt/anki/secrets/sync.env
+      register: native_credentials
+      no_log: true
+    - name: Install separate MCP sync password
+      ansible.builtin.copy:
+        content: "{{ native_credentials.content | b64decode | regex_search('(?m)^SYNC_USER2=timdumol:(.+)$', '\\1') | first }}"
+        dest: /opt/anki/secrets/mcp-sync-password
+        owner: '65532'
+        group: '65532'
+        mode: '0400'
+      no_log: true
+    - name: Save previous configuration
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        remote_src: true
+        mode: '0600'
+      loop:
+        - {src: /opt/anki/compose.yaml, dest: /opt/anki/rollback/compose.yaml, exists: "{{ previous.results[0].stat.exists }}"}
+        - {src: "{{ anki_site }}", dest: /opt/anki/rollback/anki.caddy, exists: "{{ previous.results[1].stat.exists }}"}
+      when: item.exists | bool
+    - name: Deploy and validate with rollback
+      when: not ansible_check_mode
+      block:
+        - name: Render Compose
+          ansible.builtin.template:
+            src: compose.yaml.j2
+            dest: /opt/anki/compose.yaml
+            mode: '0644'
+        - name: Validate Compose
+          ansible.builtin.command: docker compose -f /opt/anki/compose.yaml config --quiet
+          changed_when: false
+        - name: Start sync server and require healthy status
+          ansible.builtin.command: docker compose -f /opt/anki/compose.yaml up -d --wait --wait-timeout 120
+          changed_when: true
+        - name: Install only the Anki site fragment
+          ansible.builtin.template:
+            src: anki.caddy.j2
+            dest: "{{ anki_site }}"
+            mode: '0644'
+        - name: Validate combined Caddy configuration
+          ansible.builtin.command:
+            argv: [docker, exec, "{{ caddy.stdout | trim }}", caddy, validate, --config, /etc/caddy/Caddyfile, --adapter, caddyfile]
+          changed_when: false
+        - name: Reload combined Caddy configuration
+          ansible.builtin.command:
+            argv: [docker, exec, "{{ caddy.stdout | trim }}", caddy, reload, --config, /etc/caddy/Caddyfile, --adapter, caddyfile]
+          changed_when: true
+        - name: Verify public sync health with TLS
+          ansible.builtin.uri:
+            url: "https://{{ anki_sync_domain }}/health"
+            status_code: 200
+          register: health
+          retries: 12
+          delay: 5
+          until: health.status | default(0) == 200
+        - name: Verify public MCP readiness
+          ansible.builtin.uri:
+            url: "https://{{ anki_mcp_domain }}/healthz"
+            status_code: 200
+          register: mcp_health
+          retries: 12
+          delay: 5
+          until: mcp_health.status | default(0) == 200
+        - name: Verify MCP requires authentication
+          ansible.builtin.uri:
+            url: "https://{{ anki_mcp_domain }}/mcp"
+            status_code: 401
+        - name: Verify existing public services
+          ansible.builtin.uri:
+            url: "{{ item }}"
+            status_code: 200
+          loop:
+            - https://mars.timdumol.com/health
+            - https://athena.timdumol.com/
+            - https://vulcan.timdumol.com/
+            - https://api.aries.timdumol.com/healthz
+            - https://auth.aries.timdumol.com/.well-known/openid-configuration
+        - name: Install coordinated Anki snapshot helper
+          ansible.builtin.copy:
+            src: ../backup-snapshot.sh
+            dest: /opt/anki/backup-snapshot.sh
+            owner: root
+            group: root
+            mode: '0700'
+        - name: Install fixed Anki maintenance coordinator
+          ansible.builtin.copy:
+            src: ../maintenance.sh
+            dest: /opt/anki/maintenance.sh
+            owner: root
+            group: root
+            mode: '0700'
+            validate: /bin/bash -n %s
+        - name: Install Anki maintenance units
+          ansible.builtin.copy:
+            src: "../{{ item }}"
+            dest: "/etc/systemd/system/{{ item }}"
+            owner: root
+            group: root
+            mode: '0644'
+          loop: [anki-maintenance.service, anki-maintenance.timer]
+        - name: Enable explicit migration request processing
+          ansible.builtin.systemd_service:
+            name: anki-maintenance.timer
+            enabled: true
+            state: started
+            daemon_reload: true
+        - name: Extend the existing restic job with a consistent Anki snapshot
+          ansible.builtin.blockinfile:
+            path: /usr/local/sbin/aries-server-backup
+            insertbefore: '^exclusions=\(\)'
+            marker: '# {mark} ANKI CONSISTENT SNAPSHOT'
+            block: '/opt/anki/backup-snapshot.sh "$STAGE"'
+            backup: true
+            validate: /bin/bash -n %s
+      rescue:
+        - name: Restore prior Anki fragment
+          ansible.builtin.copy:
+            remote_src: true
+            src: /opt/anki/rollback/anki.caddy
+            dest: "{{ anki_site }}"
+            mode: '0644'
+          when: previous.results[1].stat.exists
+        - name: Remove new fragment after first deployment failure
+          ansible.builtin.file:
+            path: "{{ anki_site }}"
+            state: absent
+          when: not previous.results[1].stat.exists
+        - name: Reload restored Caddy configuration
+          ansible.builtin.command:
+            argv: [docker, exec, "{{ caddy.stdout | trim }}", caddy, reload, --config, /etc/caddy/Caddyfile, --adapter, caddyfile]
+          changed_when: true
+        - name: Restore prior Compose
+          ansible.builtin.copy:
+            remote_src: true
+            src: /opt/anki/rollback/compose.yaml
+            dest: /opt/anki/compose.yaml
+            mode: '0644'
+          when: previous.results[0].stat.exists
+        - name: Restart prior deployment
+          ansible.builtin.command: docker compose -f /opt/anki/compose.yaml up -d --wait --remove-orphans
+          changed_when: true
+          when: previous.results[0].stat.exists
+        - name: Stop failed first deployment while preserving its data
+          ansible.builtin.command: docker compose -f /opt/anki/compose.yaml down
+          changed_when: true
+          when: not previous.results[0].stat.exists
+        - name: Report deployment failure
+          ansible.builtin.fail:
+            msg: Anki staging validation failed; prior Anki routing restored. Data preserved.

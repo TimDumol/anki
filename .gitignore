@@ -21,6 +21,10 @@ ts/.svelte-kit
 .claude/settings.local.json
 .claude/user.md
 .venv
+/.pocket-id-api-key
+/anki-premigrate.colpkg
+/deploy/anki/secrets/
+/deploy/anki/artifacts/
 docs/_build/
 docs/autoapi/
 .complexipy_cache

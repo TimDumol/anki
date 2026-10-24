@@ -148,10 +148,11 @@ impl ExchangeData {
 fn collection_to_tempfile(meta: &Meta, archive: &mut ZipArchive<File>) -> Result<NamedTempFile> {
     let mut zip_file = archive.by_name(meta.collection_filename())?;
     let mut tempfile = new_tempfile()?;
+    let name = zip_file.name()?.into_owned();
     meta.copy(&mut zip_file, &mut tempfile)
         .with_context(|_| FileIoSnafu {
             path: tempfile.path(),
-            op: FileOp::copy(zip_file.name()),
+            op: FileOp::copy(&name),
         })?;
 
     Ok(tempfile)
